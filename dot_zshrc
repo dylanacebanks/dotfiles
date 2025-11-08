@@ -186,8 +186,26 @@ function dot-push() {
 # Pull from remote → apply to home
 function dot-pull() {
   echo "⬇️  Updating chezmoi from GitHub..."
-  chezmoi update -v
-  echo "✅ Dotfiles updated and applied."
+
+  # Ensure we're on the correct branch
+  (
+    cd "$(chezmoi source-path)" || {
+      echo "❌ Could not enter chezmoi source dir."
+      return 1
+    }
+    # Fetch & show current branch
+    current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "unknown")
+    echo "📦 Current branch: $current_branch"
+  )
+
+  # Update from remote and apply changes to $HOME
+  if chezmoi update -v; then
+    echo "✅ Dotfiles updated and applied."
+  else
+    echo "❌ ChezMoi update failed."
+    return 1
+  fi
 }
+
 
 
