@@ -146,3 +146,48 @@ alias gp='git push'
 
 # Poetry (common)
 export PATH="$HOME/.local/bin:$PATH"
+
+# 1Password SSH Agent
+export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"
+
+# chezmoi aliases
+alias cz='chezmoi'
+alias czp='chezmoi git add . && chezmoi git commit -m "update" && chezmoi git push'
+
+# -------------------- smart sync helpers --------------------
+
+# Sync from home → chezmoi → git → remote
+function dot-push() {
+  echo "🧭 Adding and pushing chezmoi changes..."
+
+  # Only add files that actually exist on this machine
+  local -a files=(~/.zshrc ~/.p10k.zsh ~/.config/starship.toml)
+  local f
+  for f in "${files[@]}"; do
+    [[ -e "$f" ]] && chezmoi add "$f"
+  done
+
+  (
+    cd "$(chezmoi source-path)" || { echo "❌ Could not enter chezmoi source dir."; exit 1; }
+
+    # If both working tree and index are clean, bail out nicely
+    if git diff --quiet && git diff --cached --quiet; then
+      echo "ℹ️  No changes to commit."
+      exit 0
+    fi
+
+    git add -A
+    git commit -m "${1:-update dotfiles}"
+    git push -u origin main
+  ) && echo "✅ Dotfiles pushed."
+}
+
+
+# Pull from remote → apply to home
+function dot-pull() {
+  echo "⬇️  Updating chezmoi from GitHub..."
+  chezmoi update -v
+  echo "✅ Dotfiles updated and applied."
+}
+
+
