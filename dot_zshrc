@@ -119,20 +119,12 @@ elif $IS_DARWIN; then
 fi
 
 # -------------------- Aliases (minimal, additive) --------------------
-if $IS_LINUX; then
-  alias ll='ls -lh --color=auto'
-  alias la='ls -lha --color=auto'
-else
-  # macOS: BSD ls (or gnu ls if coreutils gnubin enabled)
-  if command -v gls >/dev/null 2>&1; then
-    alias ls='gls'
-    alias ll='gls -lh --color=auto'
-    alias la='gls -lha --color=auto'
-  else
-    alias ll='ls -lh'
-    alias la='ls -lha'
-  fi
-fi
+
+alias ls='lsd --icon auto'
+alias ll='lsd -lh --git --icon auto'
+alias la='lsd -la --git --icon auto'
+alias lt='lsd --tree --depth=2 --icon auto'
+
 alias gs='git status'
 alias gc='git commit -v'
 alias gp='git push'
