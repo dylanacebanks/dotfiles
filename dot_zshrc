@@ -129,6 +129,11 @@ alias gs='git status'
 alias gc='git commit -v'
 alias gp='git push'
 
+alias Projects='cd /home/dylanbanks/workspace/projects/ && la'
+alias Thirdway='cd /home/dylanbanks/workspace/projects/thirdway/ && la'
+alias Koralis='cd /home/dylanbanks/workspace/projects/koralis-ai && la'
+alias Kairos='cd /home/dylanbanks/workspace/projects/kairos-flow && la'
+
 # -------------------- Prompt/theme config --------------------
 [[ -r "$HOME/.p10k.zsh" ]] && source "$HOME/.p10k.zsh"
 
