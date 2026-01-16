@@ -1,12 +1,13 @@
+# --------------------------------------------------------
 # ~/.zshrc — unified for Fedora + macOS (Oh My Zsh + p10k)
 # --------------------------------------------------------
 
-# --- Detect OS/Arch/Homebrew prefix early ---
+# --- Detect OS/Arch early ---
 OS=${OSTYPE}
 IS_DARWIN=false
 IS_LINUX=false
 [[ "$OS" == darwin* ]] && IS_DARWIN=true
-[[ "$OS" == linux*  ]] && IS_LINUX=true
+[[ "$OS" == linux* ]] && IS_LINUX=true
 
 # --- Powerlevel10k instant prompt (must stay at the very top) ---
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
@@ -33,11 +34,11 @@ ZSH_DISABLE_COMPFIX="true"
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
 # --- Plugins (lean for speed) ---
+# Note: 'fzf' removed from here to avoid double-loading (handled manually below)
 plugins=(
   git
   zsh-autosuggestions
-  fast-syntax-highlighting   # prefer over zsh-syntax-highlighting for speed
-  fzf
+  fast-syntax-highlighting   # Ensure this is cloned into $ZSH_CUSTOM/plugins
 )
 
 # --- Load Oh My Zsh (if present) ---
@@ -73,13 +74,21 @@ zstyle ':completion:*' matcher-list \
 # Common user bins first
 export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 
-# macOS: ensure Homebrew bins are ahead of system defaults
+# macOS: Homebrew (Optimized: No slow 'brew --prefix' subshell)
 if $IS_DARWIN; then
-  if command -v brew >/dev/null 2>&1; then
-    BREW_PREFIX="$(brew --prefix)"
-    export PATH="$BREW_PREFIX/bin:$BREW_PREFIX/sbin:$PATH"
-    # Put gnubin (coreutils) ahead if installed (OPTIONAL)
-    [[ -d "$BREW_PREFIX/opt/coreutils/libexec/gnubin" ]] && export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
+  # 1. Check Apple Silicon path
+  if [[ -d "/opt/homebrew/bin" ]]; then
+    export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+    BREW_PREFIX="/opt/homebrew"
+  # 2. Check Intel path
+  elif [[ -d "/usr/local/bin" ]]; then
+    export PATH="/usr/local/bin:/usr/local/sbin:$PATH"
+    BREW_PREFIX="/usr/local"
+  fi
+
+  # 3. Add GNU Coreutils (gnubin) if present
+  if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt/coreutils/libexec/gnubin" ]]; then
+    export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
   fi
 fi
 
@@ -91,8 +100,8 @@ if $IS_LINUX; then
 fi
 
 # macOS Homebrew fzf scripts
-if $IS_DARWIN && command -v brew >/dev/null 2>&1; then
-  FZF_DIR="$(brew --prefix 2>/dev/null)/opt/fzf/shell"
+if $IS_DARWIN && [[ -n "$BREW_PREFIX" ]]; then
+  FZF_DIR="$BREW_PREFIX/opt/fzf/shell"
   [[ -f "$FZF_DIR/key-bindings.zsh" ]] && source "$FZF_DIR/key-bindings.zsh"
   [[ -f "$FZF_DIR/completion.zsh"    ]] && source "$FZF_DIR/completion.zsh"
 fi
@@ -109,10 +118,14 @@ fi
 
 # -------------------- TeX Live / MacTeX --------------------
 if $IS_LINUX; then
-  # TeX Live (Linux)
-  export PATH="/usr/local/texlive/2025/bin/x86_64-linux:$PATH"
-  export MANPATH="/usr/local/texlive/2025/texmf-dist/doc/man:${MANPATH:-}"
-  export INFOPATH="/usr/local/texlive/2025/texmf-dist/doc/info:${INFOPATH:-}"
+  # TeX Live (Linux) - Dynamically find the newest year installed
+  # (N) = nullglob (don't error if missing), (On) = Order by Name descending
+  local tex_dirs=(/usr/local/texlive/*(N/On))
+  if (( ${#tex_dirs} > 0 )); then
+    export PATH="${tex_dirs[1]}/bin/x86_64-linux:$PATH"
+    export MANPATH="${tex_dirs[1]}/texmf-dist/doc/man:${MANPATH:-}"
+    export INFOPATH="${tex_dirs[1]}/texmf-dist/doc/info:${INFOPATH:-}"
+  fi
 elif $IS_DARWIN; then
   # MacTeX universal symlink
   export PATH="/Library/TeX/texbin:$PATH"
@@ -137,13 +150,6 @@ alias Kairos='cd $HOME/workspace/projects/kairos-flow && la'
 
 # -------------------- Prompt/theme config --------------------
 [[ -r "$HOME/.p10k.zsh" ]] && source "$HOME/.p10k.zsh"
-
-# If you prefer zsh-syntax-highlighting instead of fast-*, source it LAST:
-# [[ -r ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] \
-#   && source ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-# Poetry (common)
-export PATH="$HOME/.local/bin:$PATH"
 
 # 1Password SSH Agent
 export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"
@@ -176,7 +182,8 @@ function dot-push() {
 
     git add -A
     git commit -m "${1:-update dotfiles}"
-    git push -u origin main
+    # Use HEAD so we don't accidentally push to 'main' if we are on a dev branch
+    git push -u origin HEAD
   ) && echo "✅ Dotfiles pushed."
 }
 
